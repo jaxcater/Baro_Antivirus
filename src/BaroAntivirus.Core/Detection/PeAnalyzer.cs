@@ -7,11 +7,13 @@ public sealed class PeAnalysisResult
     public bool IsValidPe { get; init; }
     public bool Is64Bit { get; init; }
     public bool IsDll { get; init; }
+    public bool IsDotNet { get; init; }
     public int SectionCount { get; init; }
     public double MaxSectionEntropy { get; init; }
     public bool HasRwxSection { get; init; }
     public bool HasPackerSection { get; init; }
     public string? DetectedPacker { get; init; }
+    public string? DetectedRatFamily { get; init; }
     public bool HasMalformedHeaders { get; init; }
     public long OverlaySizeBytes { get; init; }
     public double OverlayEntropy { get; init; }
@@ -42,12 +44,17 @@ public static class PeAnalyzer
         "VirtualAlloc", "VirtualAllocEx", "VirtualProtect", "VirtualProtectEx",
         "WriteProcessMemory", "NtWriteVirtualMemory", "CreateRemoteThread", "NtCreateThreadEx",
         "QueueUserAPC", "NtUnmapViewOfSection", "ZwUnmapViewOfSection", "SetThreadContext",
-        "ResumeThread", "SetWindowsHookExA", "SetWindowsHookExW", "GetAsyncKeyState",
+        "ResumeThread", "SetWindowsHookEx", "SetWindowsHookExA", "SetWindowsHookExW",
+        "CallNextHookEx", "GetAsyncKeyState", "GetKeyState", "GetKeyboardState",
         "GetForegroundWindow", "IsDebuggerPresent", "CheckRemoteDebuggerPresent",
         "NtQueryInformationProcess", "AdjustTokenPrivileges", "OpenProcessToken",
-        "CryptEncrypt", "BCryptEncrypt", "URLDownloadToFileA", "URLDownloadToFileW",
-        "WinExec", "ShellExecuteA", "ShellExecuteW", "CreateProcessInternalW"
+        "CryptEncrypt", "BCryptEncrypt", "CryptUnprotectData",
+        "URLDownloadToFile", "URLDownloadToFileA", "URLDownloadToFileW",
+        "WinExec", "ShellExecute", "ShellExecuteA", "ShellExecuteW", "CreateProcessInternalW",
+        "capCreateCaptureWindow", "capCreateCaptureWindowA", "capCreateCaptureWindowW"
     };
+
+    private static string T(params string[] parts) => string.Concat(parts);
 
     private const uint IMAGE_SCN_MEM_EXECUTE = 0x20000000;
     private const uint IMAGE_SCN_MEM_WRITE = 0x80000000;
@@ -118,15 +125,23 @@ public static class PeAnalyzer
                 };
             }
 
-            // Read Import Directory RVA & Size
+            // Read Import Directory RVA & Size + CLR Runtime Header RVA & Size
             uint importDirRva = 0;
             uint importDirSize = 0;
+            uint clrDirRva = 0;
+            uint clrDirSize = 0;
             int dataDirOffset = is64 ? 112 : 96;
             if (sizeOfOptionalHeader >= dataDirOffset + 16)
             {
                 fs.Seek(optionalStart + dataDirOffset + 8, SeekOrigin.Begin); // entry[1] = Import Table
                 importDirRva = br.ReadUInt32();
                 importDirSize = br.ReadUInt32();
+            }
+            if (sizeOfOptionalHeader >= dataDirOffset + 120)
+            {
+                fs.Seek(optionalStart + dataDirOffset + 112, SeekOrigin.Begin); // entry[14] = CLR Descriptor
+                clrDirRva = br.ReadUInt32();
+                clrDirSize = br.ReadUInt32();
             }
 
             long sectionTableStart = optionalStart + sizeOfOptionalHeader;
@@ -248,23 +263,34 @@ public static class PeAnalyzer
             if (importDirRva > 0 && importDirSize > 0)
             {
                 ExtractSuspiciousImports(fs, br, sections, importDirRva, is64, suspiciousApis);
-                EvaluateApiClusters(suspiciousApis, ref score, reasons);
             }
+
+            // Inspect .NET CLR Metadata (#Strings / #US) for P/Invoke & RAT/Stealer capabilities
+            bool isDotNet = clrDirRva > 0 && clrDirSize > 0;
+            string? detectedRatFamily = null;
+            if (isDotNet)
+            {
+                InspectClrMetadata(fs, br, sections, clrDirRva, suspiciousApis, ref score, reasons, ref detectedRatFamily);
+            }
+
+            EvaluateApiClusters(suspiciousApis, ref score, reasons);
 
             return new PeAnalysisResult
             {
                 IsValidPe = true,
                 Is64Bit = is64,
                 IsDll = isDll,
+                IsDotNet = isDotNet,
                 SectionCount = numberOfSections,
                 MaxSectionEntropy = maxEntropy,
                 HasRwxSection = hasRwx,
                 HasPackerSection = hasPacker,
                 DetectedPacker = detectedPacker,
+                DetectedRatFamily = detectedRatFamily,
                 OverlaySizeBytes = overlaySize,
                 OverlayEntropy = overlayEntropy,
                 SuspiciousApis = suspiciousApis,
-                RiskScore = Math.Min(score, 95),
+                RiskScore = Math.Min(score, 98),
                 Reasons = reasons
             };
         }
@@ -298,11 +324,11 @@ public static class PeAnalyzer
             reasons.Add("Tổ hợp API Process Hollowing (NtUnmapViewOfSection + SetThreadContext + ResumeThread).");
         }
 
-        if ((apis.Contains("SetWindowsHookExA") || apis.Contains("SetWindowsHookExW")) &&
-            apis.Contains("GetAsyncKeyState"))
+        if ((apis.Contains("SetWindowsHookEx") || apis.Contains("SetWindowsHookExA") || apis.Contains("SetWindowsHookExW")) &&
+            (apis.Contains("GetAsyncKeyState") || apis.Contains("GetKeyState") || apis.Contains("GetKeyboardState") || apis.Contains("GetForegroundWindow")))
         {
             score += 28;
-            reasons.Add("Tổ hợp API ghi nhận thao tác bàn phím / Keylogger (SetWindowsHookEx + GetAsyncKeyState).");
+            reasons.Add("Tổ hợp API ghi nhận thao tác bàn phím / Keylogger (SetWindowsHookEx + Input/Foreground API).");
         }
 
         if (apis.Contains("IsDebuggerPresent") && apis.Contains("CheckRemoteDebuggerPresent"))
@@ -311,10 +337,201 @@ public static class PeAnalyzer
             reasons.Add("Chứa API chống phân tích / Anti-Debugging.");
         }
 
-        if (apis.Contains("URLDownloadToFileA") || apis.Contains("URLDownloadToFileW"))
+        if (apis.Contains("URLDownloadToFile") || apis.Contains("URLDownloadToFileA") || apis.Contains("URLDownloadToFileW"))
         {
             score += 14;
             reasons.Add("Gọi trực tiếp URLDownloadToFile để tải tệp ngầm.");
+        }
+    }
+
+    private static void InspectClrMetadata(
+        FileStream fs,
+        BinaryReader br,
+        List<PeSectionInfo> sections,
+        uint clrDirRva,
+        HashSet<string> suspiciousApis,
+        ref int score,
+        List<string> reasons,
+        ref string? detectedRatFamily)
+    {
+        try
+        {
+            long clrOffset = RvaToFileOffset(sections, clrDirRva);
+            if (clrOffset < 0 || clrOffset + 16 > fs.Length) return;
+
+            fs.Seek(clrOffset + 8, SeekOrigin.Begin);
+            uint metaRva = br.ReadUInt32();
+            uint metaSize = br.ReadUInt32();
+            if (metaRva == 0 || metaSize < 32) return;
+
+            long metaOffset = RvaToFileOffset(sections, metaRva);
+            if (metaOffset < 0 || metaOffset + 32 > fs.Length) return;
+
+            fs.Seek(metaOffset, SeekOrigin.Begin);
+            if (br.ReadUInt32() != 0x424A5342) return; // "BSJB"
+
+            fs.Seek(metaOffset + 12, SeekOrigin.Begin);
+            int verLen = br.ReadInt32();
+            if (verLen < 0 || verLen > 256) return;
+
+            long pos = metaOffset + 16 + ((verLen + 3) & ~3);
+            if (pos + 4 > fs.Length) return;
+
+            fs.Seek(pos + 2, SeekOrigin.Begin);
+            ushort numStreams = br.ReadUInt16();
+            pos += 4;
+
+            long stringsOff = -1;
+            int stringsSize = 0;
+            long usOff = -1;
+            int usSize = 0;
+
+            for (int s = 0; s < Math.Min((int)numStreams, 16); s++)
+            {
+                if (pos + 8 > fs.Length) break;
+                fs.Seek(pos, SeekOrigin.Begin);
+                uint sOff = br.ReadUInt32();
+                uint sSize = br.ReadUInt32();
+                pos += 8;
+
+                var nameBytes = new List<byte>(16);
+                while (pos < fs.Length && nameBytes.Count < 32)
+                {
+                    byte b = br.ReadByte();
+                    pos++;
+                    if (b == 0) break;
+                    nameBytes.Add(b);
+                }
+                while ((pos - metaOffset) % 4 != 0 && pos < fs.Length) { pos++; }
+
+                string streamName = Encoding.ASCII.GetString(nameBytes.ToArray());
+                long absOff = metaOffset + sOff;
+                if (absOff < 0 || absOff >= fs.Length) continue;
+
+                int clampedSize = (int)Math.Min(sSize, Math.Min(2 * 1024 * 1024, fs.Length - absOff));
+                if (streamName == "#Strings")
+                {
+                    stringsOff = absOff;
+                    stringsSize = clampedSize;
+                }
+                else if (streamName == "#US")
+                {
+                    usOff = absOff;
+                    usSize = clampedSize;
+                }
+            }
+
+            bool hasKeylogCap = false;
+            bool hasSurveillanceCap = false;
+            bool hasRemoteShellOrProxyCap = false;
+            bool hasCredentialStealerCap = false;
+            bool hasPersistenceString = false;
+            bool hasGeoIpString = false;
+
+            if (stringsOff > 0 && stringsSize > 0)
+            {
+                fs.Seek(stringsOff, SeekOrigin.Begin);
+                byte[] buf = new byte[stringsSize];
+                int read = fs.Read(buf, 0, stringsSize);
+                string utf8 = Encoding.UTF8.GetString(buf, 0, read);
+
+                string q1 = T("quasar", ".client");
+                string q2 = T("quasar", ".common.messages");
+                string a1 = T("async", "rat");
+                string x1 = T("x", "worm");
+                string n1 = T("nj", "rat");
+                string v1 = T("venom", "rat");
+                string d1 = T("dc", "rat");
+                string r1 = T("redline", ".client");
+
+                foreach (string token in utf8.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (TrackedApis.Contains(token))
+                        suspiciousApis.Add(token);
+
+                    string lower = token.ToLowerInvariant();
+                    if (detectedRatFamily == null)
+                    {
+                        if (lower.Contains(q1) || lower.Contains(q2)) detectedRatFamily = "QuasarRAT";
+                        else if (lower.Contains(a1)) detectedRatFamily = "AsyncRAT";
+                        else if (lower.Contains(v1)) detectedRatFamily = "VenomRAT";
+                        else if (lower.Contains(n1)) detectedRatFamily = "NjRAT";
+                        else if (lower.Contains(x1) && lower.Contains("client")) detectedRatFamily = "XWorm";
+                        else if (lower.Contains(d1) && (lower.Contains("plugin") || lower.Contains("recovery"))) detectedRatFamily = "DcRat";
+                        else if (lower.Contains(r1)) detectedRatFamily = "RedLine";
+                    }
+
+                    if (lower.Contains(T("key", "log")) || lower.Contains(T("global", "hookproc")) ||
+                        lower.Contains(T("setwindows", "hookex")) || lower.Contains(T("getasync", "keystate")))
+                    {
+                        hasKeylogCap = true;
+                    }
+                    if (lower.Contains(T("remote", "desktop")) || lower.Contains(T("desktop", "duplicator")) ||
+                        lower.Contains(T("get", "webcam")) || lower.Contains(T("web", "cam")) ||
+                        lower.Contains(T("capcreate", "capturewindow")))
+                    {
+                        hasSurveillanceCap = true;
+                    }
+                    if (lower.Contains(T("reverse", "proxy")) || lower.Contains(T("doshell", "execute")) ||
+                        lower.Contains(T("remote", "shell")) || lower.Contains(T("shell", "execute")))
+                    {
+                        hasRemoteShellOrProxyCap = true;
+                    }
+                    if (lower.Contains(T("recovery.", "browsers")) || lower.Contains(T("browser", "recovery")) ||
+                        lower.Contains(T("steal", "er")) || lower.Contains(T("crypt", "unprotectdata")))
+                    {
+                        hasCredentialStealerCap = true;
+                    }
+                }
+            }
+
+            if (usOff > 0 && usSize > 0)
+            {
+                fs.Seek(usOff, SeekOrigin.Begin);
+                byte[] usBuf = new byte[usSize];
+                int usRead = fs.Read(usBuf, 0, usSize);
+                string usText = Encoding.Unicode.GetString(usBuf, 0, usRead).ToLowerInvariant();
+
+                if (usText.Contains(T("currentversion", "\\run")) || usText.Contains(T("sch", "tasks")))
+                    hasPersistenceString = true;
+
+                if (usText.Contains(T("ipwho", ".is")) || usText.Contains(T("ip-api", ".com")) ||
+                    usText.Contains(T("api.ipify", ".org")) || usText.Contains(T("check", "ip.")))
+                    hasGeoIpString = true;
+
+                if (detectedRatFamily == null && usText.Contains(T("quasar", " client")))
+                    detectedRatFamily = "QuasarRAT";
+            }
+
+            if (detectedRatFamily != null)
+            {
+                score += 88;
+                reasons.Add($"Phát hiện dấu hiệu mã độc điều khiển từ xa (.NET RAT Family: {detectedRatFamily}) trong metadata.");
+            }
+
+            int capCount = 0;
+            var caps = new List<string>();
+            if (hasKeylogCap) { capCount++; caps.Add("Keylogger/Hook bàn phím"); }
+            if (hasSurveillanceCap) { capCount++; caps.Add("Theo dõi màn hình/Webcam"); }
+            if (hasRemoteShellOrProxyCap) { capCount++; caps.Add("Remote Shell / Reverse Proxy"); }
+            if (hasCredentialStealerCap) { capCount++; caps.Add("Trích xuất mật khẩu trình duyệt"); }
+            if (hasPersistenceString && hasGeoIpString) { capCount++; caps.Add("Tự khởi chạy bền bỉ + định vị GeoIP"); }
+
+            if (capCount >= 2)
+            {
+                int boost = capCount >= 3 ? 72 : 52;
+                score += boost;
+                reasons.Add($"Phân tích CLR .NET phát hiện tổ hợp {capCount} hành vi Trojan/RAT: {string.Join(", ", caps)}.");
+            }
+            else if (capCount == 1 && (hasPersistenceString || hasGeoIpString))
+            {
+                score += 36;
+                reasons.Add($"Phân tích CLR .NET phát hiện hành vi nhạy cảm ({caps[0]}) kèm cơ chế bền bỉ/truy vấn IP.");
+            }
+        }
+        catch
+        {
+            // Keep PE analyzer resilient on malformed CLR headers
         }
     }
 

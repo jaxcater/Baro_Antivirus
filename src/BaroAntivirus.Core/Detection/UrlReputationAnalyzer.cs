@@ -1,10 +1,24 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using BaroAntivirus.Core.Models;
 
 namespace BaroAntivirus.Core.Detection;
 
+public sealed record ClipboardScanResult(
+    bool HasThreat,
+    int MaxRiskScore,
+    List<UrlCheckResult> FlaggedUrls,
+    List<string> CommandWarnings);
+
 public sealed class UrlReputationAnalyzer
 {
+    private static readonly Regex UrlExtractRegex = new(
+        @"(?i)\b((?:https?|ftp)://[^\s""'<>()\[\]{}|\\^`]+)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex BareIpUrlRegex = new(
+        @"(?i)\b((?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?/[^\s""'<>()\[\]{}|\\^`]*)",
+        RegexOptions.Compiled);
     private static readonly HashSet<string> DefaultBlockedDomains = new(StringComparer.OrdinalIgnoreCase)
     {
         "testsafebrowsing.appspot.com",
@@ -175,5 +189,96 @@ public sealed class UrlReputationAnalyzer
             IsIpLiteral = isIpLiteral,
             Reasons = reasons
         };
+    }
+
+    public static List<string> ExtractUrls(string text)
+    {
+        var results = new List<string>();
+        if (string.IsNullOrWhiteSpace(text)) return results;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Match m in UrlExtractRegex.Matches(text))
+        {
+            string url = CleanExtractedUrl(m.Groups[1].Value);
+            if (!string.IsNullOrEmpty(url) && seen.Add(url))
+                results.Add(url);
+        }
+
+        foreach (Match m in BareIpUrlRegex.Matches(text))
+        {
+            string candidate = CleanExtractedUrl(m.Groups[1].Value);
+            if (string.IsNullOrEmpty(candidate)) continue;
+            string withScheme = "http://" + candidate;
+            if (!seen.Any(u => u.Contains(candidate, StringComparison.OrdinalIgnoreCase)) && seen.Add(withScheme))
+                results.Add(withScheme);
+        }
+
+        return results;
+    }
+
+    public ClipboardScanResult AnalyzeClipboardContent(string text)
+    {
+        var flaggedUrls = new List<UrlCheckResult>();
+        var commandWarnings = new List<string>();
+        int maxScore = 0;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return new ClipboardScanResult(false, 0, flaggedUrls, commandWarnings);
+
+        var urls = ExtractUrls(text);
+        foreach (string url in urls)
+        {
+            var res = Analyze(url);
+            if (!res.IsSafe)
+            {
+                flaggedUrls.Add(res);
+                if (res.RiskScore > maxScore) maxScore = res.RiskScore;
+            }
+        }
+
+        string lower = text.ToLowerInvariant();
+        bool hasDownloaderTool =
+            lower.Contains("curl ") || lower.Contains("curl.exe") ||
+            lower.Contains("wget ") || lower.Contains("invoke-webrequest") ||
+            lower.Contains("iwr ") || lower.Contains("irm ") ||
+            lower.Contains("bitsadmin") || lower.Contains("certutil") ||
+            lower.Contains("mshta ");
+
+        bool hasExecChain =
+            lower.Contains("&&") || lower.Contains("| iex") || lower.Contains("|iex") ||
+            lower.Contains("invoke-expression") || lower.Contains("start ") ||
+            lower.Contains("cmd ") || lower.Contains("powershell") ||
+            lower.Contains("-enc") || lower.Contains("-encodedcommand") ||
+            lower.Contains("%temp%") || lower.Contains("$env:temp");
+
+        if (hasDownloaderTool && hasExecChain && (urls.Count > 0 || lower.Contains("http")))
+        {
+            int cmdScore = 88;
+            if (cmdScore > maxScore) maxScore = cmdScore;
+            commandWarnings.Add("Phát hiện chuỗi lệnh tải tệp từ mạng và thực thi tự động (Dropper / ClickFix pattern).");
+        }
+        else if (flaggedUrls.Count == 0 && urls.Count > 0 && hasDownloaderTool)
+        {
+            // Downloading executable via shell command even from a domain
+            foreach (string url in urls)
+            {
+                if (DangerousDownloadExts.Any(ext => url.Contains(ext, StringComparison.OrdinalIgnoreCase)))
+                {
+                    int cmdScore = 72;
+                    if (cmdScore > maxScore) maxScore = cmdScore;
+                    commandWarnings.Add($"Phát hiện lệnh dòng lệnh tải tệp thực thi từ liên kết: {url}");
+                    break;
+                }
+            }
+        }
+
+        bool hasThreat = flaggedUrls.Count > 0 || commandWarnings.Count > 0;
+        return new ClipboardScanResult(hasThreat, maxScore, flaggedUrls, commandWarnings);
+    }
+
+    private static string CleanExtractedUrl(string raw)
+    {
+        return raw.Trim().TrimEnd('"', '\'', ',', ';', '.', ')', ']', '}');
     }
 }

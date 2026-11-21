@@ -281,22 +281,38 @@ public partial class App : System.Windows.Application
         {
             if (!System.Windows.Clipboard.ContainsText()) return;
             string text = System.Windows.Clipboard.GetText().Trim();
-            if (text.Length > 500 || text.Contains('\n')) return;
-            if (!text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !text.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return;
+            if (string.IsNullOrEmpty(text) || text.Length > 16384) return;
 
-            var res = UrlAnalyzer.Analyze(text);
-            if (!res.IsSafe)
+            var clipResult = UrlAnalyzer.AnalyzeClipboardContent(text);
+            if (!clipResult.HasThreat) return;
+
+            var detailParts = new List<string>();
+            detailParts.AddRange(clipResult.CommandWarnings);
+            foreach (var u in clipResult.FlaggedUrls)
             {
-                SettingsService.Log(SecurityLogLevel.Alert, "ClipboardUrlGuard",
-                    $"Phát hiện liên kết nguy hiểm trong Clipboard: {res.NormalizedHost} (Điểm {res.RiskScore}/100)",
-                    string.Join(" | ", res.Reasons));
-                TrayService.ShowNotification(
-                    "Cảnh báo Liên kết Nguy hiểm!",
-                    $"{res.Verdict}: {res.NormalizedHost}",
-                    isWarningOrError: true);
+                detailParts.Add($"{u.Url} ({u.RiskScore}/100): {string.Join("; ", u.Reasons)}");
             }
+
+            string summaryTarget = clipResult.FlaggedUrls.Count > 0
+                ? string.Join(", ", clipResult.FlaggedUrls.Select(u => u.NormalizedHost).Distinct())
+                : "Lệnh tải/thực thi từ mạng";
+
+            SettingsService.Log(SecurityLogLevel.Alert, "ClipboardUrlGuard",
+                $"Phát hiện nội dung/liên kết nguy hiểm trong Clipboard: {summaryTarget} (Điểm {clipResult.MaxRiskScore}/100)",
+                string.Join(" | ", detailParts));
+
+            string toastTitle = clipResult.CommandWarnings.Count > 0
+                ? "Cảnh báo Lệnh & Liên kết Nguy hiểm!"
+                : "Cảnh báo Liên kết Nguy hiểm!";
+
+            string toastBody = clipResult.FlaggedUrls.Count > 0
+                ? $"{clipResult.FlaggedUrls[0].Verdict}: {summaryTarget}"
+                : clipResult.CommandWarnings[0];
+
+            TrayService.ShowNotification(
+                toastTitle,
+                toastBody,
+                isWarningOrError: true);
         }
         catch { }
     }

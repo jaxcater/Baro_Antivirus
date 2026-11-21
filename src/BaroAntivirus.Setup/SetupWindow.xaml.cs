@@ -114,7 +114,10 @@ public partial class SetupWindow : Window
 
             Directory.CreateDirectory(installDir);
 
-            SetStatus("Đang giải nén các thành phần BaroAntivirus...", 25);
+            SetStatus("Đang sao chép nền tảng .NET 9 dùng chung...", 20);
+            CopySharedRuntimeFiles(installDir);
+
+            SetStatus("Đang giải nén các thành phần BaroAntivirus...", 45);
             using var payloadStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("BaroPayload.zip")
                 ?? throw new InvalidOperationException("Không tìm thấy gói cài đặt nhúng BaroPayload.zip.");
 
@@ -141,7 +144,7 @@ public partial class SetupWindow : Window
                     done++;
                     if (done % 5 == 0 || done == total)
                     {
-                        int pct = 25 + (int)(55.0 * done / total);
+                        int pct = 45 + (int)(35.0 * done / total);
                         SetStatus($"Đang cài đặt ({done}/{total} tệp)...", pct);
                     }
                 }
@@ -262,6 +265,31 @@ public partial class SetupWindow : Window
         ProgInstall.Value = percent;
     }
 
+    private static void CopySharedRuntimeFiles(string installDir)
+    {
+        string baseDir = Path.GetFullPath(AppContext.BaseDirectory);
+        if (!Directory.Exists(baseDir)) return;
+
+        foreach (string srcFile in Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories))
+        {
+            string fileName = Path.GetFileName(srcFile);
+            if (fileName.StartsWith("Baro_setup", StringComparison.OrdinalIgnoreCase) ||
+                fileName.Equals("createdump.exe", StringComparison.OrdinalIgnoreCase) ||
+                fileName.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string relPath = Path.GetRelativePath(baseDir, srcFile);
+            string destPath = Path.GetFullPath(Path.Combine(installDir, relPath));
+            if (!destPath.StartsWith(Path.GetFullPath(installDir), StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+            File.Copy(srcFile, destPath, overwrite: true);
+        }
+    }
+
     private static void StopRunningAppInstances()
     {
         foreach (var p in Process.GetProcessesByName("BaroAntivirus"))
@@ -291,7 +319,7 @@ public partial class SetupWindow : Window
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegPath, writable: true);
         if (key == null) return;
         key.SetValue("DisplayName", "BaroAntivirus");
-        key.SetValue("DisplayVersion", "1.0.0");
+        key.SetValue("DisplayVersion", "1.1.0");
         key.SetValue("Publisher", "BaroSecurity");
         key.SetValue("DisplayIcon", exePath);
         key.SetValue("InstallLocation", installDir);

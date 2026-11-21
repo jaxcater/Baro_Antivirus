@@ -10,8 +10,30 @@ using WinForms = System.Windows.Forms;
 
 namespace BaroAntivirus.App;
 
-public sealed class FindingViewItem
+public sealed class SelectableItem<T> : INotifyPropertyChanged
 {
+    private bool _isSelected;
+    public T Item { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+
+    public SelectableItem(T item) => Item = item;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+public sealed class FindingViewItem : INotifyPropertyChanged
+{
+    private bool _isSelected;
     public ThreatFinding Raw { get; }
     public ThreatSeverity Severity => Raw.Severity;
     public int RiskScore => Raw.RiskScore;
@@ -21,7 +43,20 @@ public sealed class FindingViewItem
     public ProtectionAction ActionTaken => Raw.ActionTaken;
     public string ReasonsText => string.Join(" | ", Raw.Reasons);
 
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+
     public FindingViewItem(ThreatFinding raw) => Raw = raw;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public partial class MainWindow : Window
@@ -371,15 +406,69 @@ public partial class MainWindow : Window
         }
     }
 
+    private static List<T> GetCheckedOrSelected<T>(IEnumerable<T>? source, DataGrid grid, Func<T, bool> isChecked)
+    {
+        var ticked = source?.Where(isChecked).ToList() ?? new List<T>();
+        if (ticked.Count > 0) return ticked;
+        return grid.SelectedItems.OfType<T>().ToList();
+    }
+
+    private static void SetAllChecked<T>(IEnumerable<T>? source, bool isChecked, Action<T, bool> setter)
+    {
+        if (source == null) return;
+        foreach (var item in source)
+            setter(item, isChecked);
+    }
+
+    private void ChkSelectAllFindings_Click(object sender, RoutedEventArgs e)
+    {
+        SetAllChecked(_scanFindings, ChkSelectAllFindings.IsChecked == true, (item, v) => item.IsSelected = v);
+    }
+
+    private void ChkSelectAllNetwork_Click(object sender, RoutedEventArgs e)
+    {
+        SetAllChecked(GridNetwork.ItemsSource as IEnumerable<SelectableItem<NetworkConnectionInfo>>,
+            ChkSelectAllNetwork.IsChecked == true, (item, v) => item.IsSelected = v);
+    }
+
+    private void ChkSelectAllProcesses_Click(object sender, RoutedEventArgs e)
+    {
+        SetAllChecked(GridProcesses.ItemsSource as IEnumerable<SelectableItem<ProcessRiskInfo>>,
+            ChkSelectAllProcesses.IsChecked == true, (item, v) => item.IsSelected = v);
+    }
+
+    private void ChkSelectAllStartup_Click(object sender, RoutedEventArgs e)
+    {
+        SetAllChecked(GridStartup.ItemsSource as IEnumerable<SelectableItem<StartupEntryInfo>>,
+            ChkSelectAllStartup.IsChecked == true, (item, v) => item.IsSelected = v);
+    }
+
+    private void ChkSelectAllQuarantine_Click(object sender, RoutedEventArgs e)
+    {
+        SetAllChecked(GridQuarantine.ItemsSource as IEnumerable<SelectableItem<QuarantineEntry>>,
+            ChkSelectAllQuarantine.IsChecked == true, (item, v) => item.IsSelected = v);
+    }
+
     private void BtnQuarantineSelected_Click(object sender, RoutedEventArgs e)
     {
-        if (GridScanFindings.SelectedItem is not FindingViewItem item) return;
-        if (_app.QuarantineService.QuarantineFile(item.Raw) != null)
+        var targets = GetCheckedOrSelected(_scanFindings, GridScanFindings, x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        int count = 0;
+        foreach (var item in targets.Where(x => x.ActionTaken != ProtectionAction.Quarantined))
         {
-            _app.SettingsService.Log(SecurityLogLevel.Action, "Scanner", $"Đã cách ly thủ công: {item.FileName}");
-            RefreshFindingsGrid();
-            RefreshQuarantineGrid();
+            if (_app.QuarantineService.QuarantineFile(item.Raw) != null)
+            {
+                count++;
+                _app.SettingsService.Log(SecurityLogLevel.Action, "Scanner", $"Đã cách ly: {item.FileName}");
+            }
+            item.IsSelected = false;
         }
+        ChkSelectAllFindings.IsChecked = false;
+        RefreshFindingsGrid();
+        RefreshQuarantineGrid();
+        if (targets.Count > 1)
+            System.Windows.MessageBox.Show($"Đã đưa {count} mục đã chọn vào Khu Cách Ly an toàn.", "BaroAntivirus");
     }
 
     private void BtnQuarantineAll_Click(object sender, RoutedEventArgs e)
@@ -389,6 +478,7 @@ public partial class MainWindow : Window
         {
             if (_app.QuarantineService.QuarantineFile(item.Raw) != null) count++;
         }
+        ChkSelectAllFindings.IsChecked = false;
         RefreshFindingsGrid();
         RefreshQuarantineGrid();
         System.Windows.MessageBox.Show($"Đã đưa {count} mối nguy vào Khu Cách Ly an toàn.", "BaroAntivirus");
@@ -396,24 +486,46 @@ public partial class MainWindow : Window
 
     private void BtnShredSelected_Click(object sender, RoutedEventArgs e)
     {
-        if (GridScanFindings.SelectedItem is not FindingViewItem item) return;
-        if (FileShredderService.ShredFile(item.FilePath))
+        var targets = GetCheckedOrSelected(_scanFindings, GridScanFindings, x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        if (targets.Count > 1 && System.Windows.MessageBox.Show(
+                $"Bạn chắc chắn muốn hủy vĩnh viễn {targets.Count} tệp đã chọn?",
+                "Xác nhận hủy hàng loạt", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        int count = 0;
+        foreach (var item in targets)
         {
-            item.Raw.ActionTaken = ProtectionAction.Blocked;
-            _app.SettingsService.Log(SecurityLogLevel.Action, "FileShredder", $"Đã hủy vĩnh viễn tệp độc hại: {item.FilePath}");
-            RefreshFindingsGrid();
+            if (FileShredderService.ShredFile(item.FilePath))
+            {
+                count++;
+                item.Raw.ActionTaken = ProtectionAction.Blocked;
+                _app.SettingsService.Log(SecurityLogLevel.Action, "FileShredder", $"Đã hủy vĩnh viễn tệp độc hại: {item.FilePath}");
+                _scanFindings.Remove(item);
+            }
         }
+        ChkSelectAllFindings.IsChecked = false;
+        RefreshFindingsGrid();
+        if (targets.Count > 1)
+            System.Windows.MessageBox.Show($"Đã hủy vĩnh viễn {count}/{targets.Count} tệp.", "BaroAntivirus");
     }
 
     private void BtnWhitelistSelected_Click(object sender, RoutedEventArgs e)
     {
-        if (GridScanFindings.SelectedItem is not FindingViewItem item) return;
-        if (!string.IsNullOrEmpty(item.Raw.Sha256) && !_app.Settings.ExcludedHashes.Contains(item.Raw.Sha256))
-            _app.Settings.ExcludedHashes.Add(item.Raw.Sha256);
-        if (!_app.Settings.ExcludedPaths.Contains(item.FilePath))
-            _app.Settings.ExcludedPaths.Add(item.FilePath);
+        var targets = GetCheckedOrSelected(_scanFindings, GridScanFindings, x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        foreach (var item in targets)
+        {
+            if (!string.IsNullOrEmpty(item.Raw.Sha256) && !_app.Settings.ExcludedHashes.Contains(item.Raw.Sha256))
+                _app.Settings.ExcludedHashes.Add(item.Raw.Sha256);
+            if (!_app.Settings.ExcludedPaths.Contains(item.FilePath))
+                _app.Settings.ExcludedPaths.Add(item.FilePath);
+            _scanFindings.Remove(item);
+        }
+        ChkSelectAllFindings.IsChecked = false;
         _app.SettingsService.SaveSettings(_app.Settings);
-        _scanFindings.Remove(item);
         RefreshToolkitLists();
     }
 
@@ -422,7 +534,20 @@ public partial class MainWindow : Window
     // ==================== WEB, DOWNLOAD & NETWORK ====================
     private void BtnCheckUrl_Click(object sender, RoutedEventArgs e)
     {
-        var res = _app.UrlAnalyzer.Analyze(TxtUrlInput.Text);
+        string input = TxtUrlInput.Text.Trim();
+        if (input.Contains(' ') || input.Contains('\n'))
+        {
+            var clip = _app.UrlAnalyzer.AnalyzeClipboardContent(input);
+            if (clip.HasThreat)
+            {
+                var reasons = clip.CommandWarnings.Concat(clip.FlaggedUrls.SelectMany(u => u.Reasons)).Distinct();
+                TxtUrlResult.Text = $"NGUY HIỂM ({clip.MaxRiskScore}/100) — " + string.Join(" | ", reasons);
+                TxtUrlResult.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(196, 36, 42));
+                return;
+            }
+        }
+
+        var res = _app.UrlAnalyzer.Analyze(input);
         TxtUrlResult.Text = $"{res.Verdict} ({res.RiskScore}/100) · {res.NormalizedHost} — " +
                             string.Join(" | ", res.Reasons);
         TxtUrlResult.Foreground = res.IsSafe
@@ -469,16 +594,30 @@ public partial class MainWindow : Window
 
     private void RefreshNetworkGrid()
     {
-        GridNetwork.ItemsSource = _app.NetworkService.GetActiveTcpConnections();
+        ChkSelectAllNetwork.IsChecked = false;
+        GridNetwork.ItemsSource = _app.NetworkService.GetActiveTcpConnections()
+            .Select(c => new SelectableItem<NetworkConnectionInfo>(c))
+            .ToList();
     }
 
     private void BtnKillNetworkProcess_Click(object sender, RoutedEventArgs e)
     {
-        if (GridNetwork.SelectedItem is not NetworkConnectionInfo conn || conn.Pid <= 4) return;
-        if (_app.ProcessService.TerminateProcess(conn.Pid, out string err))
-            RefreshNetworkGrid();
-        else
-            System.Windows.MessageBox.Show($"Không thể dừng tiến trình: {err}");
+        var targets = GetCheckedOrSelected(
+            GridNetwork.ItemsSource as IEnumerable<SelectableItem<NetworkConnectionInfo>>,
+            GridNetwork,
+            x => x.IsSelected);
+        var pids = targets.Select(t => t.Item.Pid).Where(pid => pid > 4).Distinct().ToList();
+        if (pids.Count == 0) return;
+
+        var errors = new List<string>();
+        foreach (int pid in pids)
+        {
+            if (!_app.ProcessService.TerminateProcess(pid, out string err))
+                errors.Add($"PID {pid}: {err}");
+        }
+        RefreshNetworkGrid();
+        if (errors.Count > 0)
+            System.Windows.MessageBox.Show("Một số tiến trình không thể dừng:\n" + string.Join("\n", errors));
     }
 
     // ==================== PROCESS & STARTUP ====================
@@ -487,65 +626,118 @@ public partial class MainWindow : Window
 
     private void RefreshProcessesGrid()
     {
-        GridProcesses.ItemsSource = _app.ProcessService.SnapshotProcesses();
+        ChkSelectAllProcesses.IsChecked = false;
+        GridProcesses.ItemsSource = _app.ProcessService.SnapshotProcesses()
+            .Select(p => new SelectableItem<ProcessRiskInfo>(p))
+            .ToList();
     }
 
     private void RefreshStartupGrid()
     {
-        GridStartup.ItemsSource = _app.StartupService.InspectStartupEntries();
+        ChkSelectAllStartup.IsChecked = false;
+        GridStartup.ItemsSource = _app.StartupService.InspectStartupEntries()
+            .Select(s => new SelectableItem<StartupEntryInfo>(s))
+            .ToList();
     }
 
     private void BtnKillSelectedProcess_Click(object sender, RoutedEventArgs e)
     {
-        if (GridProcesses.SelectedItem is not ProcessRiskInfo p) return;
-        if (_app.ProcessService.TerminateProcess(p.Pid, out string err))
-            RefreshProcessesGrid();
-        else
-            System.Windows.MessageBox.Show($"Không thể chấm dứt tiến trình: {err}");
+        var targets = GetCheckedOrSelected(
+            GridProcesses.ItemsSource as IEnumerable<SelectableItem<ProcessRiskInfo>>,
+            GridProcesses,
+            x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        var errors = new List<string>();
+        foreach (var t in targets)
+        {
+            if (!_app.ProcessService.TerminateProcess(t.Item.Pid, out string err))
+                errors.Add($"{t.Item.ProcessName} ({t.Item.Pid}): {err}");
+        }
+        RefreshProcessesGrid();
+        if (errors.Count > 0)
+            System.Windows.MessageBox.Show("Không thể chấm dứt một số tiến trình:\n" + string.Join("\n", errors));
     }
 
     private void BtnRemoveStartup_Click(object sender, RoutedEventArgs e)
     {
-        if (GridStartup.SelectedItem is not StartupEntryInfo entry) return;
-        if (_app.StartupService.RemoveStartupEntry(entry, out string err))
+        var targets = GetCheckedOrSelected(
+            GridStartup.ItemsSource as IEnumerable<SelectableItem<StartupEntryInfo>>,
+            GridStartup,
+            x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        var errors = new List<string>();
+        foreach (var t in targets)
         {
-            _app.SettingsService.Log(SecurityLogLevel.Action, "StartupGuard", $"Đã gỡ mục khởi động: {entry.Name}");
-            RefreshStartupGrid();
+            if (_app.StartupService.RemoveStartupEntry(t.Item, out string err))
+                _app.SettingsService.Log(SecurityLogLevel.Action, "StartupGuard", $"Đã gỡ mục khởi động: {t.Item.Name}");
+            else
+                errors.Add($"{t.Item.Name}: {err}");
         }
-        else
-        {
-            System.Windows.MessageBox.Show(err, "Startup Guard");
-        }
+        RefreshStartupGrid();
+        if (errors.Count > 0)
+            System.Windows.MessageBox.Show(string.Join("\n", errors), "Startup Guard");
     }
 
     // ==================== QUARANTINE ====================
     private void RefreshQuarantineGrid()
     {
+        ChkSelectAllQuarantine.IsChecked = false;
         var entries = _app.QuarantineService.GetEntries();
-        GridQuarantine.ItemsSource = entries;
+        GridQuarantine.ItemsSource = entries.Select(q => new SelectableItem<QuarantineEntry>(q)).ToList();
         TxtDashQuarantineCount.Text = $"{entries.Count} tệp";
         TxtNavQuarantineLabel.Text = entries.Count > 0 ? $"Cách ly {entries.Count}" : "Cách ly";
     }
 
     private void BtnRestoreQuarantine_Click(object sender, RoutedEventArgs e)
     {
-        if (GridQuarantine.SelectedItem is not QuarantineEntry entry) return;
-        if (_app.QuarantineService.RestoreEntry(entry.Id, out string? restoredPath))
+        var targets = GetCheckedOrSelected(
+            GridQuarantine.ItemsSource as IEnumerable<SelectableItem<QuarantineEntry>>,
+            GridQuarantine,
+            x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        int restoredCount = 0;
+        foreach (var t in targets)
         {
-            if (!string.IsNullOrEmpty(entry.Sha256) && !_app.Settings.ExcludedHashes.Contains(entry.Sha256))
-                _app.Settings.ExcludedHashes.Add(entry.Sha256);
-            _app.SettingsService.SaveSettings(_app.Settings);
-            _app.SettingsService.Log(SecurityLogLevel.Action, "Quarantine", $"Đã khôi phục tệp về {restoredPath} và thêm ngoại lệ.");
-            RefreshQuarantineGrid();
-            RefreshToolkitLists();
+            if (_app.QuarantineService.RestoreEntry(t.Item.Id, out string? restoredPath))
+            {
+                restoredCount++;
+                if (!string.IsNullOrEmpty(t.Item.Sha256) && !_app.Settings.ExcludedHashes.Contains(t.Item.Sha256))
+                    _app.Settings.ExcludedHashes.Add(t.Item.Sha256);
+                _app.SettingsService.Log(SecurityLogLevel.Action, "Quarantine", $"Đã khôi phục tệp về {restoredPath} và thêm ngoại lệ.");
+            }
         }
+        _app.SettingsService.SaveSettings(_app.Settings);
+        RefreshQuarantineGrid();
+        RefreshToolkitLists();
+        if (targets.Count > 1)
+            System.Windows.MessageBox.Show($"Đã khôi phục {restoredCount}/{targets.Count} tệp đã chọn.", "BaroAntivirus");
     }
 
     private void BtnDeleteQuarantine_Click(object sender, RoutedEventArgs e)
     {
-        if (GridQuarantine.SelectedItem is not QuarantineEntry entry) return;
-        _app.QuarantineService.DeleteEntryPermanently(entry.Id);
+        var targets = GetCheckedOrSelected(
+            GridQuarantine.ItemsSource as IEnumerable<SelectableItem<QuarantineEntry>>,
+            GridQuarantine,
+            x => x.IsSelected);
+        if (targets.Count == 0) return;
+
+        if (targets.Count > 1 && System.Windows.MessageBox.Show(
+                $"Bạn chắc chắn muốn xóa vĩnh viễn {targets.Count} tệp đã chọn khỏi Khu Cách Ly?",
+                "Xác nhận xóa hàng loạt", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        int deleted = 0;
+        foreach (var t in targets)
+        {
+            if (_app.QuarantineService.DeleteEntryPermanently(t.Item.Id))
+                deleted++;
+        }
         RefreshQuarantineGrid();
+        if (targets.Count > 1)
+            System.Windows.MessageBox.Show($"Đã xóa vĩnh viễn {deleted} tệp đã chọn.", "BaroAntivirus");
     }
 
     private void BtnPurgeQuarantine_Click(object sender, RoutedEventArgs e)
@@ -558,8 +750,13 @@ public partial class MainWindow : Window
     // ==================== TOOLKIT ====================
     private void RefreshToolkitLists()
     {
-        ListProtectedFolders.ItemsSource = _app.Settings.ProtectedFolders.ToList();
-        ListExclusions.ItemsSource = _app.Settings.ExcludedPaths.Concat(_app.Settings.ExcludedHashes).ToList();
+        ListProtectedFolders.ItemsSource = _app.Settings.ProtectedFolders
+            .Select(f => new SelectableItem<string>(f))
+            .ToList();
+        ListExclusions.ItemsSource = _app.Settings.ExcludedPaths
+            .Concat(_app.Settings.ExcludedHashes)
+            .Select(x => new SelectableItem<string>(x))
+            .ToList();
     }
 
     private void BtnBrowseShred_Click(object sender, RoutedEventArgs e)
@@ -604,8 +801,15 @@ public partial class MainWindow : Window
 
     private void BtnRemoveProtectedFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (ListProtectedFolders.SelectedItem is not string folder) return;
-        _app.Settings.ProtectedFolders.Remove(folder);
+        var items = (ListProtectedFolders.ItemsSource as IEnumerable<SelectableItem<string>>)?.ToList();
+        var targets = items?.Where(x => x.IsSelected).Select(x => x.Item).ToList() ?? new List<string>();
+        if (targets.Count == 0)
+            targets = ListProtectedFolders.SelectedItems.OfType<SelectableItem<string>>().Select(x => x.Item).ToList();
+        if (targets.Count == 0) return;
+
+        foreach (string folder in targets)
+            _app.Settings.ProtectedFolders.Remove(folder);
+
         _app.SettingsService.SaveSettings(_app.Settings);
         _app.RansomwareService.Stop();
         _app.SyncShieldStates();
@@ -626,9 +830,17 @@ public partial class MainWindow : Window
 
     private void BtnRemoveExclusion_Click(object sender, RoutedEventArgs e)
     {
-        if (ListExclusions.SelectedItem is not string ex) return;
-        _app.Settings.ExcludedPaths.Remove(ex);
-        _app.Settings.ExcludedHashes.Remove(ex);
+        var items = (ListExclusions.ItemsSource as IEnumerable<SelectableItem<string>>)?.ToList();
+        var targets = items?.Where(x => x.IsSelected).Select(x => x.Item).ToList() ?? new List<string>();
+        if (targets.Count == 0)
+            targets = ListExclusions.SelectedItems.OfType<SelectableItem<string>>().Select(x => x.Item).ToList();
+        if (targets.Count == 0) return;
+
+        foreach (string ex in targets)
+        {
+            _app.Settings.ExcludedPaths.Remove(ex);
+            _app.Settings.ExcludedHashes.Remove(ex);
+        }
         _app.SettingsService.SaveSettings(_app.Settings);
         RefreshToolkitLists();
     }

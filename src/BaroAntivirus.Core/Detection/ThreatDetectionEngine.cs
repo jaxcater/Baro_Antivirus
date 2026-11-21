@@ -154,12 +154,17 @@ public sealed class ThreatDetectionEngine
                         int adjustedPeScore = isSigned ? pe.RiskScore / 2 : pe.RiskScore;
                         riskScore = Math.Max(riskScore, adjustedPeScore);
                         reasons.AddRange(pe.Reasons);
-                        if (pe.HasPackerSection || pe.MaxSectionEntropy >= 7.2)
+                        if (!string.IsNullOrEmpty(pe.DetectedRatFamily))
+                        {
+                            category = ThreatCategory.TrojanOrDropper;
+                            threatName ??= $"Trojan.RAT.{pe.DetectedRatFamily}";
+                        }
+                        else if (pe.HasPackerSection || pe.MaxSectionEntropy >= 7.2)
                         {
                             category = ThreatCategory.PackedOrObfuscated;
                             threatName ??= "Heuristic.Packed.SuspiciousPE";
                         }
-                        else if (pe.SuspiciousApis.Count > 0)
+                        else if (pe.SuspiciousApis.Count > 0 || pe.RiskScore >= 50)
                         {
                             category = ThreatCategory.TrojanOrDropper;
                             threatName ??= "Heuristic.PE.SuspiciousBehaviorAPI";

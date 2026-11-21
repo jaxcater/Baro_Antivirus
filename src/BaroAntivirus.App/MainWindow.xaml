@@ -272,20 +272,30 @@
 
                         <DataGrid Grid.Row="3" x:Name="GridScanFindings">
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="36">
+                                    <DataGridTemplateColumn.Header>
+                                        <CheckBox x:Name="ChkSelectAllFindings" ToolTip="Chọn / Bỏ chọn tất cả" Click="ChkSelectAllFindings_Click" HorizontalAlignment="Center"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Mức độ" Binding="{Binding Severity}" Width="72"/>
                                 <DataGridTextColumn Header="Điểm" Binding="{Binding RiskScore}" Width="48"/>
-                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding ThreatName}" Width="180"/>
-                                <DataGridTextColumn Header="Tệp" Binding="{Binding FileName}" Width="125"/>
-                                <DataGridTextColumn Header="Xử lý" Binding="{Binding ActionTaken}" Width="82"/>
+                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding ThreatName}" Width="170"/>
+                                <DataGridTextColumn Header="Tệp" Binding="{Binding FileName}" Width="120"/>
+                                <DataGridTextColumn Header="Xử lý" Binding="{Binding ActionTaken}" Width="80"/>
                                 <DataGridTextColumn Header="Chi tiết" Binding="{Binding ReasonsText}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
 
                         <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="Cách ly mục chọn" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnQuarantineSelected_Click"/>
+                            <Button Content="Cách ly đã chọn" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnQuarantineSelected_Click"/>
                             <Button Content="Cách ly tất cả" Style="{StaticResource DangerBtn}" Margin="0,0,6,0" Click="BtnQuarantineAll_Click"/>
-                            <Button Content="Hủy vĩnh viễn" Style="{StaticResource SecondaryBtn}" Margin="0,0,6,0" Click="BtnShredSelected_Click"/>
-                            <Button Content="Ngoại lệ (Whitelist)" Style="{StaticResource SecondaryBtn}" Click="BtnWhitelistSelected_Click"/>
+                            <Button Content="Hủy vĩnh viễn đã chọn" Style="{StaticResource SecondaryBtn}" Margin="0,0,6,0" Click="BtnShredSelected_Click"/>
+                            <Button Content="Ngoại lệ đã chọn" Style="{StaticResource SecondaryBtn}" Click="BtnWhitelistSelected_Click"/>
                         </StackPanel>
                     </Grid>
 
@@ -352,18 +362,28 @@
                                 <TextBlock Text="Kết nối TCP hoạt động" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Làm mới" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshNetwork_Click"/>
-                                    <Button Content="Ngắt tiến trình" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillNetworkProcess_Click"/>
+                                    <Button Content="Ngắt đã chọn" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillNetworkProcess_Click"/>
                                 </StackPanel>
                             </DockPanel>
                             <DataGrid x:Name="GridNetwork">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Nghi ngờ" Binding="{Binding IsSuspicious}" Width="68"/>
-                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding ProcessName}" Width="120"/>
-                                    <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="52"/>
-                                    <DataGridTextColumn Header="Remote IP" Binding="{Binding RemoteAddress}" Width="105"/>
-                                    <DataGridTextColumn Header="Port" Binding="{Binding RemotePort}" Width="52"/>
-                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding State}" Width="88"/>
-                                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Reason}" Width="*"/>
+                                    <DataGridTemplateColumn Width="34">
+                                        <DataGridTemplateColumn.Header>
+                                            <CheckBox x:Name="ChkSelectAllNetwork" ToolTip="Chọn / Bỏ chọn tất cả" Click="ChkSelectAllNetwork_Click" HorizontalAlignment="Center"/>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Nghi ngờ" Binding="{Binding Item.IsSuspicious}" Width="66"/>
+                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding Item.ProcessName}" Width="115"/>
+                                    <DataGridTextColumn Header="PID" Binding="{Binding Item.Pid}" Width="50"/>
+                                    <DataGridTextColumn Header="Remote IP" Binding="{Binding Item.RemoteAddress}" Width="105"/>
+                                    <DataGridTextColumn Header="Port" Binding="{Binding Item.RemotePort}" Width="48"/>
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Item.State}" Width="86"/>
+                                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Item.Reason}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
@@ -387,17 +407,27 @@
                                 <TextBlock Text="Tiến trình đang chạy" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Làm mới" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshProcesses_Click"/>
-                                    <Button Content="Diệt tiến trình" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillSelectedProcess_Click"/>
+                                    <Button Content="Diệt đã chọn" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillSelectedProcess_Click"/>
                                 </StackPanel>
                             </DockPanel>
                             <DataGrid x:Name="GridProcesses">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="78"/>
-                                    <DataGridTextColumn Header="Điểm" Binding="{Binding RiskScore}" Width="46"/>
-                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding ProcessName}" Width="125"/>
-                                    <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="52"/>
-                                    <DataGridTextColumn Header="RAM" Binding="{Binding MemoryMB}" Width="55"/>
-                                    <DataGridTextColumn Header="Đường dẫn" Binding="{Binding ExecutablePath}" Width="*"/>
+                                    <DataGridTemplateColumn Width="34">
+                                        <DataGridTemplateColumn.Header>
+                                            <CheckBox x:Name="ChkSelectAllProcesses" ToolTip="Chọn / Bỏ chọn tất cả" Click="ChkSelectAllProcesses_Click" HorizontalAlignment="Center"/>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Item.Status}" Width="76"/>
+                                    <DataGridTextColumn Header="Điểm" Binding="{Binding Item.RiskScore}" Width="46"/>
+                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding Item.ProcessName}" Width="120"/>
+                                    <DataGridTextColumn Header="PID" Binding="{Binding Item.Pid}" Width="50"/>
+                                    <DataGridTextColumn Header="RAM" Binding="{Binding Item.MemoryMB}" Width="54"/>
+                                    <DataGridTextColumn Header="Đường dẫn" Binding="{Binding Item.ExecutablePath}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
@@ -407,15 +437,25 @@
                                 <TextBlock Text="Mục tự khởi động (Startup Guard)" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Quét lại" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshStartup_Click"/>
-                                    <Button Content="Gỡ mục chọn" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnRemoveStartup_Click"/>
+                                    <Button Content="Gỡ đã chọn" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnRemoveStartup_Click"/>
                                 </StackPanel>
                             </DockPanel>
                             <DataGrid x:Name="GridStartup">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Đánh giá" Binding="{Binding Status}" Width="88"/>
-                                    <DataGridTextColumn Header="Tên" Binding="{Binding Name}" Width="130"/>
-                                    <DataGridTextColumn Header="Vị trí" Binding="{Binding Location}" Width="105"/>
-                                    <DataGridTextColumn Header="Chi tiết" Binding="{Binding Reason}" Width="*"/>
+                                    <DataGridTemplateColumn Width="34">
+                                        <DataGridTemplateColumn.Header>
+                                            <CheckBox x:Name="ChkSelectAllStartup" ToolTip="Chọn / Bỏ chọn tất cả" Click="ChkSelectAllStartup_Click" HorizontalAlignment="Center"/>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Đánh giá" Binding="{Binding Item.Status}" Width="86"/>
+                                    <DataGridTextColumn Header="Tên" Binding="{Binding Item.Name}" Width="125"/>
+                                    <DataGridTextColumn Header="Vị trí" Binding="{Binding Item.Location}" Width="105"/>
+                                    <DataGridTextColumn Header="Chi tiết" Binding="{Binding Item.Reason}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
@@ -436,17 +476,27 @@
 
                         <DataGrid Grid.Row="1" x:Name="GridQuarantine">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Thời gian" Binding="{Binding QuarantinedAt.LocalDateTime, StringFormat={}{0:dd/MM HH:mm}}" Width="92"/>
-                                <DataGridTextColumn Header="Mức" Binding="{Binding Severity}" Width="66"/>
-                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding ThreatName}" Width="170"/>
-                                <DataGridTextColumn Header="Tệp" Binding="{Binding OriginalFileName}" Width="130"/>
-                                <DataGridTextColumn Header="Đường dẫn gốc" Binding="{Binding OriginalPath}" Width="*"/>
+                                <DataGridTemplateColumn Width="36">
+                                    <DataGridTemplateColumn.Header>
+                                        <CheckBox x:Name="ChkSelectAllQuarantine" ToolTip="Chọn / Bỏ chọn tất cả" Click="ChkSelectAllQuarantine_Click" HorizontalAlignment="Center"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Thời gian" Binding="{Binding Item.QuarantinedAt.LocalDateTime, StringFormat={}{0:dd/MM HH:mm}}" Width="90"/>
+                                <DataGridTextColumn Header="Mức" Binding="{Binding Item.Severity}" Width="64"/>
+                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding Item.ThreatName}" Width="165"/>
+                                <DataGridTextColumn Header="Tệp" Binding="{Binding Item.OriginalFileName}" Width="125"/>
+                                <DataGridTextColumn Header="Đường dẫn gốc" Binding="{Binding Item.OriginalPath}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-                            <Button Content="Khôi phục (+ Ngoại lệ)" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnRestoreQuarantine_Click"/>
-                            <Button Content="Xóa vĩnh viễn" Style="{StaticResource DangerBtn}" Margin="0,0,6,0" Click="BtnDeleteQuarantine_Click"/>
+                            <Button Content="Khôi phục đã chọn (+ Ngoại lệ)" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnRestoreQuarantine_Click"/>
+                            <Button Content="Xóa vĩnh viễn đã chọn" Style="{StaticResource DangerBtn}" Margin="0,0,6,0" Click="BtnDeleteQuarantine_Click"/>
                             <Button Content="Dọn sạch tất cả" Style="{StaticResource SecondaryBtn}" Click="BtnPurgeQuarantine_Click"/>
                         </StackPanel>
                     </Grid>
@@ -481,20 +531,32 @@
                                 <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,6,0">
                                     <StackPanel>
                                         <TextBlock Text="Thư mục chống Ransomware" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,6"/>
-                                        <ListBox x:Name="ListProtectedFolders" Height="82" BorderBrush="#E8EAEC" FontSize="11.5"/>
+                                        <ListBox x:Name="ListProtectedFolders" Height="82" BorderBrush="#E8EAEC" FontSize="11.5" SelectionMode="Extended">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Content="{Binding Item}" IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                             <Button Content="+ Thêm" Style="{StaticResource SecondaryBtn}" Height="25" Margin="0,0,6,0" Click="BtnAddProtectedFolder_Click"/>
-                                            <Button Content="- Gỡ" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveProtectedFolder_Click"/>
+                                            <Button Content="- Gỡ đã chọn" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveProtectedFolder_Click"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="10" Margin="6,0,0,0">
                                     <StackPanel>
                                         <TextBlock Text="Ngoại lệ (Whitelist)" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,6"/>
-                                        <ListBox x:Name="ListExclusions" Height="82" BorderBrush="#E8EAEC" FontSize="11.5"/>
+                                        <ListBox x:Name="ListExclusions" Height="82" BorderBrush="#E8EAEC" FontSize="11.5" SelectionMode="Extended">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Content="{Binding Item}" IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                             <Button Content="+ Thêm" Style="{StaticResource SecondaryBtn}" Height="25" Margin="0,0,6,0" Click="BtnAddExclusion_Click"/>
-                                            <Button Content="- Xóa" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveExclusion_Click"/>
+                                            <Button Content="- Xóa đã chọn" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveExclusion_Click"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>

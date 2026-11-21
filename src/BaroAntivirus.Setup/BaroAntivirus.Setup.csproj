@@ -10,6 +10,7 @@
     <ApplicationTitle>BaroAntivirus Setup</ApplicationTitle>
     <ApplicationIcon>..\..\assets\baro.ico</ApplicationIcon>
     <ServerGarbageCollection>false</ServerGarbageCollection>
+    <SatelliteResourceLanguages>en;vi</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\dist\BaroPayload.zip" LogicalName="BaroPayload.zip" Condition="Exists('..\..\dist\BaroPayload.zip')" />
