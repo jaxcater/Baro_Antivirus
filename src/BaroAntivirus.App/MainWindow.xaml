@@ -1,0 +1,576 @@
+<Window x:Class="BaroAntivirus.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BaroAntivirus"
+        Width="780" Height="520" MinWidth="700" MinHeight="470"
+        WindowStartupLocation="CenterScreen"
+        Background="#F4F7FA" Foreground="#131416"
+        FontFamily="IBM Plex Sans, Segoe UI">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="156"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- L-FRAME SIDEBAR (#F4F7FA, no border against top bar) -->
+        <DockPanel Grid.Column="0" Margin="12,12,8,12" LastChildFill="True">
+            <!-- Product Mark & Name -->
+            <StackPanel DockPanel.Dock="Top" Margin="4,0,0,14">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Custom geometric shield monogram in #1B6C80 -->
+                    <Grid Width="22" Height="22" Margin="0,0,8,0">
+                        <Path Data="M11,1 L20,4.5 L19,13 C18.5,17 15,20 11,21 C7,20 3.5,17 3,13 L2,4.5 Z" Fill="#1B6C80"/>
+                        <Path Data="M7.5,11 L10,13.5 L15,8.5" Stroke="#FFFFFF" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Grid>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="BaroAntivirus" FontSize="13.5" FontWeight="SemiBold" Foreground="#131416"/>
+                        <TextBlock x:Name="TxtSidebarScope" Text="Strict Shield" FontSize="11" Foreground="#5D5F60"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Compact Live Footprint & Tray Trigger -->
+            <StackPanel DockPanel.Dock="Bottom" Margin="4,10,0,0">
+                <Border BorderBrush="#E8EAEC" BorderThickness="0,1,0,0" Padding="0,8,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="RAM nền" FontSize="11" Foreground="#5D5F60"/>
+                            <TextBlock x:Name="TxtSidebarRam" Text="0.0 MB" FontSize="12.5" FontWeight="SemiBold" Foreground="#131416" Typography.NumeralAlignment="Tabular"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="CPU" FontSize="11" Foreground="#5D5F60"/>
+                            <TextBlock x:Name="TxtSidebarCpu" Text="0.0%" FontSize="12.5" FontWeight="SemiBold" Foreground="#1B6C80" Typography.NumeralAlignment="Tabular"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Button Content="Thu nhỏ khay" Style="{StaticResource SecondaryBtn}" Height="28" FontSize="11.5" Click="BtnMinimizeToTray_Click"/>
+            </StackPanel>
+
+            <!-- Navigation Destinations (14px outline icons + crisp labels, zero emojis) -->
+            <StackPanel>
+                <Button x:Name="NavDashboard" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Dashboard">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M2,7 L7,2 L12,7 M3.5,6 V12 H10.5 V6" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="Tổng quan" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavScanner" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Scanner">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M6,11 A5,5 0 1 1 6.1,11 Z M10,10 L13,13" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="DeepScan" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavWebShield" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="WebShield">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M7,1 A6,6 0 1 0 7,13 A6,6 0 1 0 7,1 M1,7 H13 M7,1 C9,3.5 9,10.5 7,13 M7,1 C5,3.5 5,10.5 7,13" Stroke="#5D5F60" StrokeThickness="1.3" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="Mạng &amp; Tải về" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavProcess" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Process">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M1,7 H4 L5.5,3 L8.5,11 L10,7 H13" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="Tiến trình" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavQuarantine" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Quarantine">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M3,6 H11 V12 H3 Z M5,6 V4 A2,2 0 0 1 9,4 V6" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="TxtNavQuarantineLabel" Text="Cách ly" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavToolkit" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Toolkit">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M3,3 H11 V11 H3 Z M3,6 H11 M6,3 V11" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="Công cụ" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NavSettings" Style="{StaticResource NavBtn}" Click="Nav_Click" Tag="Settings">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M7,4.5 A2.5,2.5 0 1 0 7,9.5 A2.5,2.5 0 1 0 7,4.5 M7,1 V2.5 M7,11.5 V13 M1,7 H2.5 M11.5,7 H13" Stroke="#5D5F60" StrokeThickness="1.4" Width="14" Height="14" Margin="0,0,8,0"/>
+                        <TextBlock Text="Cài đặt" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- RIGHT SIDE: TOP BAR (40px, #F4F7FA) + INSET WHITE SHEET (#FFFFFF, radius 12, inset 8px right/bottom) -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- TOP BAR -->
+            <Grid Grid.Row="0" Margin="4,0,10,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="TopStatusPill" Background="#DCFAE5" CornerRadius="4" Padding="7,2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="TopStatusDot" Width="6" Height="6" Fill="#1E7B4F" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtTopStatus" Text="Real-time đang bật" FontSize="11.5" FontWeight="Medium" Foreground="#04250E"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="TxtTopBaseline" Text="Chế độ Strict · Nhẹ hơn Defender" FontSize="11.5" Foreground="#5D5F60" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Quét nhanh" Style="{StaticResource SecondaryBtn}" Height="26" FontSize="11.5" Margin="0,0,6,0" Click="BtnDashQuickScan_Click"/>
+                    <Button Content="DeepScan" Style="{StaticResource AccentBtn}" Height="26" FontSize="11.5" Click="BtnDashDeepScan_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- WHITE SHEET (Framed-sheet move: inset 8px right/bottom, 1px #E8EAEC edge, no shadow) -->
+            <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E8EAEC" BorderThickness="1" CornerRadius="12" Margin="0,0,8,8" Padding="18,14">
+                <Grid>
+                    <!-- 1. OVERVIEW (Mini, scannable, zero clutter) -->
+                    <Grid x:Name="PanelDashboard">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Noun title row (19px SemiBold) + finding subline -->
+                        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="Tổng quan bảo vệ" FontSize="19" FontWeight="SemiBold" Foreground="#131416"/>
+                            <TextBlock x:Name="TxtOverviewSub" Text="6 lá chắn chủ động đang giám sát tải xuống, tiến trình và thư mục dữ liệu." FontSize="12.5" Foreground="#5D5F60" Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <!-- Divided 4-Column KPI Strip (one container split by 1px rules, NO colored icon tiles) -->
+                        <Border Grid.Row="1" BorderBrush="#E8EAEC" BorderThickness="1" CornerRadius="8" Background="#FFFFFF" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="1"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="1"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="1"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="12,9">
+                                    <TextBlock Text="Mức siết chặt" FontSize="11.5" Foreground="#5D5F60"/>
+                                    <TextBlock x:Name="TxtDashStrictness" Text="Strict" FontSize="18" FontWeight="SemiBold" Foreground="#1B6C80" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Chặt hơn Defender" FontSize="11" Foreground="#5D5F60"/>
+                                </StackPanel>
+                                <Rectangle Grid.Column="1" Fill="#F0F1F2"/>
+
+                                <StackPanel Grid.Column="2" Margin="12,9">
+                                    <TextBlock Text="Đã cách ly" FontSize="11.5" Foreground="#5D5F60"/>
+                                    <TextBlock x:Name="TxtDashQuarantineCount" Text="0 tệp" FontSize="18" FontWeight="SemiBold" Foreground="#131416" Typography.NumeralAlignment="Tabular" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Mã hóa AES-256-GCM" FontSize="11" Foreground="#5D5F60"/>
+                                </StackPanel>
+                                <Rectangle Grid.Column="3" Fill="#F0F1F2"/>
+
+                                <StackPanel Grid.Column="4" Margin="12,9">
+                                    <TextBlock Text="RAM chạy nền" FontSize="11.5" Foreground="#5D5F60"/>
+                                    <TextBlock x:Name="TxtDashRam" Text="0.0 MB" FontSize="18" FontWeight="SemiBold" Foreground="#131416" Typography.NumeralAlignment="Tabular" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Working Set hiện tại" FontSize="11" Foreground="#5D5F60"/>
+                                </StackPanel>
+                                <Rectangle Grid.Column="5" Fill="#F0F1F2"/>
+
+                                <StackPanel Grid.Column="6" Margin="12,9">
+                                    <TextBlock Text="Cảnh báo" FontSize="11.5" Foreground="#5D5F60"/>
+                                    <TextBlock x:Name="TxtDashAlertCount" Text="0" FontSize="18" FontWeight="SemiBold" Foreground="#131416" Typography.NumeralAlignment="Tabular" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Sự kiện phát hiện" FontSize="11" Foreground="#5D5F60"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Balanced 2-Column Content Row -->
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="230"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Compact 6-Shield Controls -->
+                            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="12,10" Margin="0,0,12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Lá chắn thời gian thực" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="ChkDashRealtime" Content="Bảo vệ tệp Real-time" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                    <CheckBox x:Name="ChkDashDownload" Content="Download Guard (Zone.ID)" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                    <CheckBox x:Name="ChkDashRansomware" Content="Chống Ransomware thư mục" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                    <CheckBox x:Name="ChkDashProcess" Content="Giám sát tiến trình &amp; lệnh" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                    <CheckBox x:Name="ChkDashUsb" Content="Tự động quét USB mới" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                    <CheckBox x:Name="ChkDashClipboard" Content="Cảnh báo link Clipboard" Margin="0,4" Click="DashShieldToggle_Click"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Right: Recent Activity Table -->
+                            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12,10">
+                                <DockPanel>
+                                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                        <TextBlock Text="Nhật ký bảo vệ gần đây" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <Button Content="Xem tất cả" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" HorizontalAlignment="Right" Click="BtnGoToolkitLogs_Click"/>
+                                    </DockPanel>
+                                    <DataGrid x:Name="GridDashLogs" BorderThickness="0">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Giờ" Binding="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}" Width="64"/>
+                                            <DataGridTextColumn Header="Mô-đun" Binding="{Binding Module}" Width="98"/>
+                                            <DataGridTextColumn Header="Sự kiện" Binding="{Binding Message}" Width="*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- 2. SCANNER & DEEPSCAN -->
+                    <Grid x:Name="PanelScanner" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Quét &amp; DeepScan" FontSize="19" FontWeight="SemiBold"/>
+                                <TextBlock Text="Phân tích SHA-256, YARA, PE32/64, Entropy, Script/LNK, ZIP và chữ ký số Authenticode." FontSize="12" Foreground="#5D5F60"/>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Grid.Row="1" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="175"/>
+                            </Grid.ColumnDefinitions>
+
+                            <WrapPanel Grid.Column="0" VerticalAlignment="Center">
+                                <Button x:Name="BtnDeepScan" Content="DeepScan hệ thống" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,6" Click="BtnDeepScan_Click"/>
+                                <Button x:Name="BtnQuickScan" Content="Quét nhanh" Style="{StaticResource AccentBtn}" Margin="0,0,6,6" Click="BtnQuickScan_Click"/>
+                                <Button x:Name="BtnCustomFolderScan" Content="Thư mục..." Style="{StaticResource SecondaryBtn}" Margin="0,0,6,6" Click="BtnCustomFolderScan_Click"/>
+                                <Button x:Name="BtnCustomFileScan" Content="Tệp..." Style="{StaticResource SecondaryBtn}" Margin="0,0,6,6" Click="BtnCustomFileScan_Click"/>
+                                <Button x:Name="BtnEicarTest" Content="Thử EICAR" Style="{StaticResource SecondaryBtn}" Margin="0,0,6,6" Click="BtnEicarTest_Click"/>
+                                <Button x:Name="BtnPauseScan" Content="Tạm dừng" Style="{StaticResource SecondaryBtn}" Margin="0,0,6,6" IsEnabled="False" Click="BtnPauseScan_Click"/>
+                                <Button x:Name="BtnStopScan" Content="Dừng" Style="{StaticResource DangerBtn}" Margin="0,0,0,6" IsEnabled="False" Click="BtnStopScan_Click"/>
+                            </WrapPanel>
+
+                            <Border Grid.Column="1" Background="#F4F6F8" BorderBrush="#1B6C80" BorderThickness="1" CornerRadius="6" Padding="8,6"
+                                    AllowDrop="True" Drop="ScanDropZone_Drop" DragOver="ScanDropZone_DragOver">
+                                <TextBlock Text="Kéo &amp; thả tệp/thư mục vào đây để quét ngay" FontSize="11" Foreground="#1B6C80" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="2" Background="#F4F6F8" BorderBrush="#E8EAEC" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock x:Name="TxtScanStatus" Text="Sẵn sàng quét" FontWeight="SemiBold" FontSize="12.5"/>
+                                    <TextBlock x:Name="TxtScanStats" Text="0 tệp · 0 mối nguy · 0.0 tệp/giây" HorizontalAlignment="Right" FontSize="11.5" Foreground="#5D5F60" Typography.NumeralAlignment="Tabular"/>
+                                </Grid>
+                                <ProgressBar x:Name="ProgScan" Height="6" Minimum="0" Maximum="100" Value="0" Background="#E8EAEC" Foreground="#1B6C80" BorderThickness="0"/>
+                                <TextBlock x:Name="TxtCurrentScanFile" Text="" Foreground="#5D5F60" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid Grid.Row="3" x:Name="GridScanFindings">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mức độ" Binding="{Binding Severity}" Width="72"/>
+                                <DataGridTextColumn Header="Điểm" Binding="{Binding RiskScore}" Width="48"/>
+                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding ThreatName}" Width="180"/>
+                                <DataGridTextColumn Header="Tệp" Binding="{Binding FileName}" Width="125"/>
+                                <DataGridTextColumn Header="Xử lý" Binding="{Binding ActionTaken}" Width="82"/>
+                                <DataGridTextColumn Header="Chi tiết" Binding="{Binding ReasonsText}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Cách ly mục chọn" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnQuarantineSelected_Click"/>
+                            <Button Content="Cách ly tất cả" Style="{StaticResource DangerBtn}" Margin="0,0,6,0" Click="BtnQuarantineAll_Click"/>
+                            <Button Content="Hủy vĩnh viễn" Style="{StaticResource SecondaryBtn}" Margin="0,0,6,0" Click="BtnShredSelected_Click"/>
+                            <Button Content="Ngoại lệ (Whitelist)" Style="{StaticResource SecondaryBtn}" Click="BtnWhitelistSelected_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 3. WEB, DOWNLOAD & NETWORK SHIELD -->
+                    <Grid x:Name="PanelWebShield" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="115"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Mạng &amp; Lá chắn Tải xuống" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock Text="Kiểm tra link lừa đảo, tệp vừa tải và giám sát kết nối TCP theo tiến trình." FontSize="12" Foreground="#5D5F60"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,0,8">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtUrlInput" Grid.Column="0" Text="https://" Margin="0,0,6,0"/>
+                                    <Button Grid.Column="1" Content="Kiểm tra URL" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnCheckUrl_Click"/>
+                                    <Button Grid.Column="2" Content="Chặn domain" Style="{StaticResource DangerBtn}" Click="BtnBlockDomain_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="TxtUrlResult" Text="Nhập URL để kiểm tra giả mạo, Punycode, IP trực tiếp hoặc file độc hại." FontSize="11.5" Foreground="#5D5F60" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Grid.Row="2" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="210"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="Chặn tên miền (Hosts)" FontWeight="SemiBold" FontSize="12.5"/>
+                                    <TextBlock Text="Chặn ở tầng DNS cục bộ (Admin)." FontSize="11" Foreground="#5D5F60" Margin="0,2,0,8"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Bật" Style="{StaticResource PrimaryBtn}" Height="26" Margin="0,0,6,0" Click="BtnEnableHostsShield_Click"/>
+                                        <Button Content="Tắt" Style="{StaticResource SecondaryBtn}" Height="26" Click="BtnDisableHostsShield_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TxtHostsStatus" Text="" FontSize="10.5" Foreground="#1B6C80" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <DataGrid Grid.Column="1" x:Name="GridDownloads">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Giờ" Binding="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}" Width="64"/>
+                                    <DataGridTextColumn Header="Tải xuống gần đây" Binding="{Binding FileName}" Width="140"/>
+                                    <DataGridTextColumn Header="Ký số" Binding="{Binding IsSigned}" Width="55"/>
+                                    <DataGridTextColumn Header="Kết luận" Binding="{Binding Verdict}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+
+                        <DockPanel Grid.Row="3">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <TextBlock Text="Kết nối TCP hoạt động" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Làm mới" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshNetwork_Click"/>
+                                    <Button Content="Ngắt tiến trình" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillNetworkProcess_Click"/>
+                                </StackPanel>
+                            </DockPanel>
+                            <DataGrid x:Name="GridNetwork">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Nghi ngờ" Binding="{Binding IsSuspicious}" Width="68"/>
+                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding ProcessName}" Width="120"/>
+                                    <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="52"/>
+                                    <DataGridTextColumn Header="Remote IP" Binding="{Binding RemoteAddress}" Width="105"/>
+                                    <DataGridTextColumn Header="Port" Binding="{Binding RemotePort}" Width="52"/>
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding State}" Width="88"/>
+                                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Reason}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- 4. PROCESS & STARTUP GUARD -->
+                    <Grid x:Name="PanelProcess" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Tiến trình &amp; Khởi động" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock Text="Theo dõi tiến trình rủi ro, giả mạo hệ thống và mục tự khởi động Windows." FontSize="12" Foreground="#5D5F60"/>
+                        </StackPanel>
+
+                        <DockPanel Grid.Row="1" Margin="0,0,0,8">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <TextBlock Text="Tiến trình đang chạy" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Làm mới" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshProcesses_Click"/>
+                                    <Button Content="Diệt tiến trình" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnKillSelectedProcess_Click"/>
+                                </StackPanel>
+                            </DockPanel>
+                            <DataGrid x:Name="GridProcesses">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="78"/>
+                                    <DataGridTextColumn Header="Điểm" Binding="{Binding RiskScore}" Width="46"/>
+                                    <DataGridTextColumn Header="Tiến trình" Binding="{Binding ProcessName}" Width="125"/>
+                                    <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="52"/>
+                                    <DataGridTextColumn Header="RAM" Binding="{Binding MemoryMB}" Width="55"/>
+                                    <DataGridTextColumn Header="Đường dẫn" Binding="{Binding ExecutablePath}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+
+                        <DockPanel Grid.Row="2">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <TextBlock Text="Mục tự khởi động (Startup Guard)" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Quét lại" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" Margin="0,0,6,0" Click="BtnRefreshStartup_Click"/>
+                                    <Button Content="Gỡ mục chọn" Style="{StaticResource DangerBtn}" Height="24" FontSize="11" Click="BtnRemoveStartup_Click"/>
+                                </StackPanel>
+                            </DockPanel>
+                            <DataGrid x:Name="GridStartup">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Đánh giá" Binding="{Binding Status}" Width="88"/>
+                                    <DataGridTextColumn Header="Tên" Binding="{Binding Name}" Width="130"/>
+                                    <DataGridTextColumn Header="Vị trí" Binding="{Binding Location}" Width="105"/>
+                                    <DataGridTextColumn Header="Chi tiết" Binding="{Binding Reason}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- 5. QUARANTINE -->
+                    <Grid x:Name="PanelQuarantine" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="Khu cách ly an toàn" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock Text="Tệp nghi nhiễm được mã hóa AES-256-GCM và tách biệt hoàn toàn khỏi hệ thống." FontSize="12" Foreground="#5D5F60"/>
+                        </StackPanel>
+
+                        <DataGrid Grid.Row="1" x:Name="GridQuarantine">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Thời gian" Binding="{Binding QuarantinedAt.LocalDateTime, StringFormat={}{0:dd/MM HH:mm}}" Width="92"/>
+                                <DataGridTextColumn Header="Mức" Binding="{Binding Severity}" Width="66"/>
+                                <DataGridTextColumn Header="Mối nguy" Binding="{Binding ThreatName}" Width="170"/>
+                                <DataGridTextColumn Header="Tệp" Binding="{Binding OriginalFileName}" Width="130"/>
+                                <DataGridTextColumn Header="Đường dẫn gốc" Binding="{Binding OriginalPath}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="Khôi phục (+ Ngoại lệ)" Style="{StaticResource PrimaryBtn}" Margin="0,0,6,0" Click="BtnRestoreQuarantine_Click"/>
+                            <Button Content="Xóa vĩnh viễn" Style="{StaticResource DangerBtn}" Margin="0,0,6,0" Click="BtnDeleteQuarantine_Click"/>
+                            <Button Content="Dọn sạch tất cả" Style="{StaticResource SecondaryBtn}" Click="BtnPurgeQuarantine_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 6. TOOLKIT -->
+                    <ScrollViewer x:Name="PanelToolkit" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Công cụ an toàn" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock Text="Hủy tệp vĩnh viễn 3 lớp, quản lý thư mục chống Ransomware, ngoại lệ và nhật ký." FontSize="12" Foreground="#5D5F60" Margin="0,2,0,10"/>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="Hủy tệp vĩnh viễn (File Shredder 3-Pass)" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,6"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TxtShredPath" Grid.Column="0" Margin="0,0,6,0"/>
+                                        <Button Grid.Column="1" Content="Chọn tệp..." Style="{StaticResource SecondaryBtn}" Margin="0,0,6,0" Click="BtnBrowseShred_Click"/>
+                                        <Button Grid.Column="2" Content="Hủy ngay" Style="{StaticResource DangerBtn}" Click="BtnExecuteShred_Click"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,6,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Thư mục chống Ransomware" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,6"/>
+                                        <ListBox x:Name="ListProtectedFolders" Height="82" BorderBrush="#E8EAEC" FontSize="11.5"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Button Content="+ Thêm" Style="{StaticResource SecondaryBtn}" Height="25" Margin="0,0,6,0" Click="BtnAddProtectedFolder_Click"/>
+                                            <Button Content="- Gỡ" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveProtectedFolder_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="10" Margin="6,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Ngoại lệ (Whitelist)" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,6"/>
+                                        <ListBox x:Name="ListExclusions" Height="82" BorderBrush="#E8EAEC" FontSize="11.5"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Button Content="+ Thêm" Style="{StaticResource SecondaryBtn}" Height="25" Margin="0,0,6,0" Click="BtnAddExclusion_Click"/>
+                                            <Button Content="- Xóa" Style="{StaticResource SecondaryBtn}" Height="25" Click="BtnRemoveExclusion_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="10">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock Text="Nhật ký bảo mật" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <Button Content="Xuất JSON" Style="{StaticResource SecondaryBtn}" Height="24" FontSize="11" HorizontalAlignment="Right" Click="BtnExportLogs_Click"/>
+                                    </DockPanel>
+                                    <DataGrid x:Name="GridAllLogs" Height="130">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Thời gian" Binding="{Binding Timestamp, StringFormat={}{0:dd/MM HH:mm:ss}}" Width="98"/>
+                                            <DataGridTextColumn Header="Mô-đun" Binding="{Binding Module}" Width="105"/>
+                                            <DataGridTextColumn Header="Sự kiện" Binding="{Binding Message}" Width="*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- 7. SETTINGS -->
+                    <ScrollViewer x:Name="PanelSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Cài đặt &amp; Hiệu năng" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock Text="Tùy chỉnh mức siết chặt hơn Windows Defender và tối ưu chạy nền siêu nhẹ." FontSize="12" Foreground="#5D5F60" Margin="0,2,0,12"/>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="Mức độ kiểm soát mã độc" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                                    <RadioButton x:Name="RadBalanced" Content="Balanced — Tiêu chuẩn" Margin="0,3"/>
+                                    <RadioButton x:Name="RadStrict" Content="Strict (Khuyên dùng · Chặt hơn Defender) — Chặn file tải chưa ký số bất thường, packer/entropy cao" Foreground="#1B6C80" FontWeight="SemiBold" Margin="0,3"/>
+                                    <RadioButton x:Name="RadParanoid" Content="Paranoid (Siêu chặt) — Chặn mọi tệp thực thi &amp; script tải từ Internet không có chữ ký số" Margin="0,3"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Chạy nền &amp; Tự động hóa" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                                    <CheckBox x:Name="ChkSetStartup" Content="Tự khởi chạy cùng Windows ở chế độ khay nền (--minimized)" Margin="0,3"/>
+                                    <CheckBox x:Name="ChkSetMinimizeTray" Content="Thu nhỏ xuống khay hệ thống khi bấm Đóng (X)" Margin="0,3"/>
+                                    <CheckBox x:Name="ChkSetAutoQuarantine" Content="Tự động cách ly mối nguy hiểm cao phát hiện theo thời gian thực" Margin="0,3"/>
+                                    <CheckBox x:Name="ChkSetMemTrim" Content="Tối ưu cắt giảm RAM (WorkingSet Trim) khi chạy nền" Margin="0,3"/>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,4">
+                                        <TextBlock Text="Luồng tối đa DeepScan:" Width="175" VerticalAlignment="Center" FontSize="12" Foreground="#5D5F60"/>
+                                        <ComboBox x:Name="CmbConcurrency" Width="70" Height="26">
+                                            <ComboBoxItem Content="1"/>
+                                            <ComboBoxItem Content="2"/>
+                                            <ComboBoxItem Content="3"/>
+                                            <ComboBoxItem Content="4"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Lịch Quét nhanh nền:" Width="175" VerticalAlignment="Center" FontSize="12" Foreground="#5D5F60"/>
+                                        <ComboBox x:Name="CmbScheduleMinutes" Width="155" Height="26">
+                                            <ComboBoxItem Content="Tắt (Chỉ Real-time)" Tag="0"/>
+                                            <ComboBoxItem Content="Mỗi 60 phút" Tag="60"/>
+                                            <ComboBoxItem Content="Mỗi 4 giờ" Tag="240"/>
+                                            <ComboBoxItem Content="Mỗi 24 giờ" Tag="1440"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Lưu cài đặt" Style="{StaticResource PrimaryBtn}" Margin="0,0,8,0" Click="BtnSaveSettings_Click"/>
+                                <Button Content="Giải phóng RAM ngay" Style="{StaticResource SecondaryBtn}" Click="BtnTrimMemoryNow_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

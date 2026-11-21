@@ -1,0 +1,9 @@
+bin/
+obj/
+dist/
+*.zip
+Baro_setup.exe
+.vs/
+*.user
+*.suo
+.taste-skill/inspect/
