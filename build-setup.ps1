@@ -34,15 +34,24 @@ dotnet publish (Join-Path $root "src\BaroAntivirus.Setup\BaroAntivirus.Setup.csp
     -o $distSetupStage
 if ($LASTEXITCODE -ne 0) { throw "Stage Setup failed" }
 
-Write-Host "[3/4] Deduplicating shared .NET 9 / WPF runtime into delta BaroPayload.zip..."
+Write-Host "[3/4] Deduplicating shared .NET 9 / WPF managed runtime into delta BaroPayload.zip..."
+# Core native host/CLR files are statically linked or hidden inside singlefilehost.exe, so always pack them in BaroPayload.zip
+$alwaysIncludeNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+@(
+    "hostfxr.dll", "hostpolicy.dll", "coreclr.dll", "clrjit.dll", "clrgc.dll", "clrgcexp.dll",
+    "clretwrc.dll", "mscordaccore.dll", "mscordbi.dll", "mscorrc.dll",
+    "Microsoft.DiaSymReader.Native.amd64.dll", "msquic.dll", "System.IO.Compression.Native.dll", "createdump.exe"
+) | ForEach-Object { [void]$alwaysIncludeNames.Add($_) }
+
 $appFiles = Get-ChildItem $distApp -Recurse -File
 $deltaCount = 0
 $sharedCount = 0
 foreach ($f in $appFiles) {
     $rel = $f.FullName.Substring($distApp.Length).TrimStart('\', '/')
+    $mustInclude = $alwaysIncludeNames.Contains($f.Name) -or ($f.Name -like "mscordaccore_*")
     $stageCounterpart = Join-Path $distSetupStage $rel
     $isIdentical = $false
-    if (Test-Path $stageCounterpart) {
+    if (-not $mustInclude -and (Test-Path $stageCounterpart)) {
         $sf = Get-Item $stageCounterpart
         if ($sf.Length -eq $f.Length) {
             $h1 = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
@@ -60,7 +69,7 @@ foreach ($f in $appFiles) {
         $deltaCount++
     }
 }
-Write-Host "    Shared runtime files reused: $sharedCount | Delta app files packed: $deltaCount"
+Write-Host "    Shared runtime files reused: $sharedCount | Delta app+native files packed: $deltaCount"
 [System.IO.Compression.ZipFile]::CreateFromDirectory($distPayload, $payloadZip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
 
 Write-Host "[4/4] Publishing Baro_setup.exe (Compressed Single-File Installer)..."
@@ -68,6 +77,7 @@ dotnet publish (Join-Path $root "src\BaroAntivirus.Setup\BaroAntivirus.Setup.csp
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:EnableCompressionInSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:IncludeAllContentForSelfExtract=true `
     -p:DebugType=None -p:DebugSymbols=false `
     -o $distSetup
