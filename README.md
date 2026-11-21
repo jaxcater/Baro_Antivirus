@@ -2,7 +2,7 @@
 
 Phần mềm **Antivirus, quét virus & mã độc chuyên sâu (`DeepScan`)** và bảo vệ thời gian thực siêu nhẹ dành cho Windows 10/11 (x64).
 
-Được thiết kế với giao diện **mini gọn nhẹ** theo chuẩn *Taste (`framed-sheet`)* — nền thép sáng (`#F4F7FA`), trang trắng lọt lòng (`#FFFFFF`), điểm nhấn **Petrol Teal (`#1B6C80`)** — tối ưu chạy nền tiêu thụ ít tài nguyên hơn Windows Defender.
+
 
 ---
 
@@ -28,7 +28,7 @@ Tải về tại trang **[GitHub Releases](https://github.com/jaxcater/Baro_Anti
   - **Archive Inspector (`.zip`)**: Quét trực tiếp trong bộ nhớ không giải nén ra đĩa, phát hiện Zip Bomb, file thực thi đặt mật khẩu né trình quét và script độc hại bên trong.
   - **Signature & YARA-style Rules**: SHA-256 blocklist, chuẩn EICAR, phát hiện xóa Shadow Copy (`vssadmin`), đánh cắp thông tin LSASS/trình duyệt, AMSI bypass, Reverse Shell, LOLBins và CryptoMiner.
 
-### 2. Luôn chạy cùng người dùng & Siêu nhẹ hơn Windows Defender
+### 2. Luôn chạy cùng người dùng & Siêu nhẹ > Windows Defender
 - **System Tray (`NotifyIcon`)**: Tự thu nhỏ xuống khay hệ thống khi đóng cửa sổ (`X`), cảnh báo tức thì qua thông báo Windows, hỗ trợ Single-Instance `Mutex` và tự khởi động cùng Windows (`--minimized`).
 - **Tối ưu tài nguyên chạy nền**: Dùng `ServerGarbageCollection=false`, luồng quét `ThreadPriority.BelowNormal`, giới hạn concurrency, đọc stream đệm (`SequentialScan`) và cắt giảm bộ nhớ `SetProcessWorkingSetSizeEx` khi chạy nền (~`33–38 MB RAM`, nhẹ hơn nhiều so với mức ~`150–300 MB` thường thấy ở `MsMpEng.exe`).
 
